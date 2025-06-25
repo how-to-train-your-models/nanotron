@@ -99,7 +99,7 @@ def eval(
     key: PRNGKeyArray,
     model: model.GPT,
     val_data: Tuple[Float[Array, "batch seq_len"], Float[Array, "batch seq_len"]],
-) -> jnp.ndarray:
+) -> Float[Array, "1"]:
     x, y = val_data
     logits = jax.vmap(model, in_axes=(None, 0))(key, x)  # (batch_size,)
     return jnp.mean(get_loss(logits, y))
