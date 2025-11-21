@@ -1,3 +1,4 @@
+import dataclasses
 import jax
 import jax.numpy as jnp
 import einops
@@ -6,9 +7,9 @@ import jax
 import jax.numpy as jnp
 import optax
 import os
-import pickle
 
 from jaxtyping import Float, Array, PRNGKeyArray
+from pprint import pprint
 from simple_parsing import ArgumentParser
 from typing import Tuple, Any
 from . import model, data, config, utils
@@ -16,6 +17,7 @@ from . import model, data, config, utils
 seed = 42
 
 print(f"{os.environ['CUDA_VISIBLE_DEVICES']=}")
+
 
 def get_optimizers(
     model: model.GPT, weight_decay: float, learning_rate: float, betas: Tuple
@@ -61,7 +63,7 @@ def get_loss(
 ) -> Float[Array, "batch seq_len"]:
     logits = einops.rearrange(logits, "batch seq_len logits -> (batch seq_len) logits")
     y = einops.rearrange(y, "batch seq_len -> (batch seq_len)")
-    return optax.softmax_cross_entropy_with_integer_labels(logits, y) # type: ignore
+    return optax.softmax_cross_entropy_with_integer_labels(logits, y)  # type: ignore
     # return jnp.mean(jax.nn.log_softmax(logits) * y)
 
 
@@ -73,7 +75,7 @@ def compute_grads(
     y: Float[Array, "batch seq_len"],
 ) -> Float[Array, "1"]:
     batch_size = x.shape[0]
-    sub_keys = jax.random.split(key, batch_size)    
+    sub_keys = jax.random.split(key, batch_size)
     logits = jax.vmap(model, in_axes=(0, 0))(sub_keys, x)  # (batch_size,)
     loss = get_loss(logits, y)
     return jnp.mean(loss)
@@ -105,13 +107,26 @@ def eval(
     return jnp.mean(get_loss(logits, y))
 
 
+def print_training_info(
+    model: eqx.Module, model_config: config.GPTConfig, train_config: config.TrainConfig
+) -> None:
+    pprint(dataclasses.asdict(train_config), width=1)
+    pprint(dataclasses.asdict(model_config), width=1)
+    # Count parameters: filter to only arrays, then sum their sizes
+    model_params = eqx.filter(model, eqx.is_inexact_array)
+    num_params = sum(x.size for x in jax.tree_util.tree_leaves(model_params))
+    print(f"Model parameters: {num_params:,}")
+
+
 def train(train_config: config.TrainConfig, model_config: config.GPTConfig) -> None:
     key = jax.random.PRNGKey(seed)
     train_key, eval_key, data_key, model_key = jax.random.split(key, 4)
 
     vocab_info = data.get_vocabulary_info()
-    model_config.vocab_size = vocab_info["vocab_size"]  # TODO provide a way to override this
-    
+    model_config.vocab_size = vocab_info[
+        "vocab_size"
+    ]  # TODO provide a way to override this
+
     gpt = model.GPT(model_key, model_config)
     model_params = eqx.filter(gpt, eqx.is_inexact_array)
     # Initialize the optimizer
@@ -134,6 +149,8 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig) -> N
         val_data_key, "validation", train_config.batch_size, model_config.block_size
     )
 
+    print_training_info(gpt, model_config, train_config)
+
     for i in range(train_config.num_steps):
         train_key, step_key = jax.random.split(train_key)
         train_batch = next(train_dataloader)
@@ -148,9 +165,7 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig) -> N
             eval_loss = eval(sub_eval_key, gpt, val_batch)
             print(f"Eval Loss: {eval_loss}")
             if train_config.always_save_checkpoint:
-                utils.save_model(
-                    gpt, train_config.out_dir, i, model_config
-                )
+                utils.save_model(gpt, train_config.out_dir, i, model_config)
 
 
 if __name__ == "__main__":
@@ -161,7 +176,7 @@ if __name__ == "__main__":
         "--clean-output-dir",
         action="store_true",
         default=True,
-        help="Clean the output directory before training. Enabled by default."
+        help="Clean the output directory before training. Enabled by default.",
     )
     args = parser.parse_args()
 

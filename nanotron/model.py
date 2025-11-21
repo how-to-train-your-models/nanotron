@@ -10,6 +10,7 @@ from typing import List, Tuple, Optional
 from . import attention
 from .config import GPTConfig
 
+
 class SwiGLU(eqx.Module):
     """
     https://azizbelaweid.substack.com/p/what-is-swiglu-how-to-implement-it
@@ -27,7 +28,9 @@ class SwiGLU(eqx.Module):
         self.b = jax.random.normal(k3, (out_features,))
         self.c = jax.random.normal(k4, (out_features,))
 
-    def __call__(self, x: Float[Array, "... in_features"]) -> Float[Array, "... out_features"]:
+    def __call__(
+        self, x: Float[Array, "... in_features"]
+    ) -> Float[Array, "... out_features"]:
         return jax.nn.swish(jnp.dot(x, self.W) + self.b) * (jnp.dot(x, self.V) + self.c)
 
 
@@ -62,10 +65,15 @@ class MLP(eqx.Module):
 
         self.dropout = nn.Dropout(model_config.dropout)
 
-    def __call__(self, key: PRNGKeyArray, x: Float[Array, "n_tokens n_embed"], inference: bool = False) -> Float[Array, "n_tokens n_embed"]:
+    def __call__(
+        self,
+        key: PRNGKeyArray,
+        x: Float[Array, "n_tokens n_embed"],
+        inference: bool = False,
+    ) -> Float[Array, "n_tokens n_embed"]:
         x = self.c_fc(x)
         x = self.swiglu(x)
-        x = self.c_proj(x)        
+        x = self.c_proj(x)
         x = self.dropout(x, key=key, inference=inference)
         return x
 
@@ -209,37 +217,37 @@ class GPT(eqx.Module):
         top_k: Optional[Integer] = None,
     ) -> Integer[Array, "n_tokens + max_new_tokens"]:
         """Generate text tokens given an initial sequence.
-        
+
         Args:
             key: Random key for sampling
             initial_tokens: Initial sequence of tokens to continue from
             max_new_tokens: Maximum number of new tokens to generate
             temperature: Sampling temperature (1.0 = no change, <1.0 = more conservative, >1.0 = more random)
             top_k: If set, only sample from the top k most likely tokens
-            
+
         Returns:
             Array of generated tokens including the initial sequence
         """
         # Start with the initial tokens
         tokens = initial_tokens
-        
+
         for i in range(max_new_tokens):
             # Get key for this iteration
             key, subkey = jax.random.split(key)
             # during inference, we only get last token logits
-            logits = self(subkey, tokens, inference=True) # (1, vocab_size)
+            logits = self(subkey, tokens, inference=True)  # (1, vocab_size)
             logits = logits / temperature
-                
+
             if top_k is not None:
                 v, _ = jax.lax.top_k(logits, top_k)
                 min_value = v[0, -1]
                 logits = jnp.where(logits < min_value, -jnp.inf, logits)
-                    
+
             # jax.random.categorical expects log-probabilities. The logits are
             # already unnormalized log-probabilities, so we pass them directly
             # after applying temperature scaling and optional top-k filtering.
             next_token = jax.random.categorical(subkey, logits[0])
             print(f"Generated token {i+1}/{max_new_tokens}: {next_token}")
             tokens = jnp.append(tokens, next_token)
-            
+
         return tokens
