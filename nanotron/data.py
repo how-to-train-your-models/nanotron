@@ -48,6 +48,21 @@ def get_vocab_size() -> int:
 def get_infinite_dataloader(
     key: PRNGKeyArray, split_type: str, batch_size: int, seq_len: int
 ) -> Generator[Tuple[jnp.ndarray, jnp.ndarray], None, None]:
+    """
+    Get an infinite dataloader for a given split type, batch size, and sequence length.
+    Args:
+        key: Random key for randomness
+        split_type: Type of split to get data from (train, validation, test)
+        batch_size: Batch size
+        seq_len: Sequence length
+    Returns:
+        Generator of tuples of (x, y) where x is a batch of sequences and y is a batch of next characters
+        x is a batch of sequences of length seq_len
+        y is a batch of next characters
+        x and y are both of shape (batch_size, seq_len)
+        x is the input sequences
+        y is the next characters        
+    """
     dataset_obj = get_dataset()
     assert split_type in dataset_obj.keys(), f"Split {split_type} not found in dataset"
 
