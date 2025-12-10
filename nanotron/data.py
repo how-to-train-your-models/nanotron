@@ -87,11 +87,13 @@ def get_infinite_dataloader(
     while True:
         # Create new subkey for randomness
         key, subkey = jax.random.split(key)
+        # sample a batch of random token indices of the size batch_size
         ix = jax.random.randint(
             key=subkey, shape=(batch_size,), minval=0, maxval=max_tokens
-        )
-        # Vectorized gather of sequences
-        idx = ix[:, None] + arange_seq[None, :]
+        ) # shape (batch_size,)        
+        # ix = jnp.arange(batch_size).reshape(batch_size, ) # keep the batch same for debugging
+        # broadcast the token indices to get the input sequences
+        idx = ix[:, None] + arange_seq[None, :]        
         x = jnp.take(data_array, idx)
         y = jnp.take(data_array, idx + 1)
         yield x, y
