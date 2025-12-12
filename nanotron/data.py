@@ -7,7 +7,7 @@ from typing import Any, Dict, Generator, Optional, Tuple, Callable
 dataset_name = "karpathy/tiny_shakespeare"
 _cached_vocab_info: Optional[Dict[str, Any]] = None
 # Cache for pre-encoded splits to avoid repeated Python-level encoding
-_cached_encoded_splits: Dict[str, jnp.ndarray] = {}
+_cached_encoded_splits: Dict[str, jnp.ndarray] = {} # key is the split like train, validation, test and value is the pre-encoded array
 
 
 def get_dataset() -> Any:
@@ -61,7 +61,7 @@ def get_infinite_dataloader(
         y is a batch of next characters
         x and y are both of shape (batch_size, seq_len)
         x is the input sequences
-        y is the next characters        
+        y is the next characters
     """
     dataset_obj = get_dataset()
     assert split_type in dataset_obj.keys(), f"Split {split_type} not found in dataset"
@@ -82,18 +82,20 @@ def get_infinite_dataloader(
         _cached_encoded_splits[split_type] = jnp.array(token_list, dtype=jnp.int32)
     data_array = _cached_encoded_splits[split_type]
     max_tokens = data_array.shape[0]
-    arange_seq = jnp.arange(seq_len)
-
     while True:
         # Create new subkey for randomness
         key, subkey = jax.random.split(key)
         # sample a batch of random token indices of the size batch_size
         ix = jax.random.randint(
-            key=subkey, shape=(batch_size,), minval=0, maxval=max_tokens
-        ) # shape (batch_size,)        
+            key=subkey,
+            shape=(batch_size,),
+            minval=0,
+            maxval=max_tokens - seq_len - 1, # subtract seq_len to avoid out of bound while sampling sequences
+        )  # shape (batch_size,)
         # ix = jnp.arange(batch_size).reshape(batch_size, ) # keep the batch same for debugging
         # broadcast the token indices to get the input sequences
-        idx = ix[:, None] + arange_seq[None, :]        
+        arange_seq = jnp.arange(seq_len)
+        idx = ix[:, None] + arange_seq[None, :]
         x = jnp.take(data_array, idx)
         y = jnp.take(data_array, idx + 1)
         yield x, y
