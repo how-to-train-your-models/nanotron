@@ -19,7 +19,7 @@ class GPTConfig:
 class TrainConfig:
     """Training configuration"""
     # Settings adapted from nanoGPT's tiny Shakespeare configuration
-    num_steps: int = 5000
+    num_steps: int = 100000
     batch_size: int = 64
     # Use the original output directory path
     out_dir = os.environ.get('OUT_DIR', './output/')
@@ -27,12 +27,12 @@ class TrainConfig:
     log_interval = 10
     eval_iters = 200
     eval_only = False  # if True, script exits right after the first eval
-    always_save_checkpoint = False
+    always_save_checkpoint = True
     init_from = 'scratch'  # 'scratch' or 'resume' or 'gpt2*'
 
     gradient_accumulation_steps = 1  # nanoGPT uses no accumulation here
 
-    learning_rate = 1e-3  # max learning rate
+    learning_rate = 5e-6  # max learning rate
 
     weight_decay = 1e-1
     beta1 = 0.9

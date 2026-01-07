@@ -25,8 +25,13 @@ def get_optimizers(
 
     # Weight decay optimizer
     decay_optimizer = optax.chain(
-        optax.add_decayed_weights(weight_decay),  # Apply weight decay
-        optax.adamw(learning_rate=learning_rate, b1=betas[0], b2=betas[1]),
+        optax.clip_by_global_norm(1.0),
+        optax.adamw(
+            learning_rate=learning_rate,
+            b1=betas[0],
+            b2=betas[1],
+            weight_decay=weight_decay,
+        ),
     )
     # No weight decay optimizer
     nodecay_optimizer = optax.adamw(
@@ -165,7 +170,7 @@ def train(train_config: config.TrainConfig, model_config: config.GPTConfig) -> N
             eval_loss = eval(sub_eval_key, gpt, val_batch)
             print(f"Eval Loss: {eval_loss}")
             if train_config.always_save_checkpoint:
-                utils.save_model(gpt, train_config.out_dir, i, model_config)
+                utils.save_model(gpt, train_config.out_dir, i, vocab_info)
 
 
 if __name__ == "__main__":
