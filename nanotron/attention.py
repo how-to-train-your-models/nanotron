@@ -65,7 +65,11 @@ class MultiHeadAttention(eqx.Module):
             key=key_proj,
         )
 
-    def __call__(self, x: Float[Array, "seq_len n_embed"], mask: Optional[Array] = None) -> Tuple[Float[Array, "seq_len n_embed"], Float[Array, "n_heads seq_len seq_len"]]:
+    def __call__(
+        self, x: Float[Array, "seq_len n_embed"], mask: Optional[Array] = None
+    ) -> Tuple[
+        Float[Array, "seq_len n_embed"], Float[Array, "n_heads seq_len seq_len"]
+    ]:
         seq_len, n_embed = x.shape
         # a single projection layer, given the input produces Q, K, V matrices
         qkv = jax.vmap(self.qkv_proj)(x)
@@ -87,7 +91,7 @@ class MultiHeadAttention(eqx.Module):
             seq_len=seq_len,
             n_heads=self.n_heads,
         )
-        # embedding dims contains all of qkv, so split        
+        # embedding dims contains all of qkv, so split
         q, k, v = jnp.array_split(reshaped_qkv, 3, axis=-1)
         values, attention = scaled_dot_product(q, k, v, mask=mask)
         values = einops.rearrange(

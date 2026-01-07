@@ -24,3 +24,8 @@ dev = [
     "ipython",
     "ipdb",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.13",
+]

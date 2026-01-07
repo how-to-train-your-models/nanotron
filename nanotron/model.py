@@ -23,10 +23,14 @@ class SwiGLU(eqx.Module):
 
     def __init__(self, key: PRNGKeyArray, in_features: int, out_features: int) -> None:
         k1, k2, k3, k4 = jax.random.split(key, 4)
-        self.W = jax.random.normal(k1, (in_features, out_features))
-        self.V = jax.random.normal(k2, (in_features, out_features))
-        self.b = jax.random.normal(k3, (out_features,))
-        self.c = jax.random.normal(k4, (out_features,))
+        # Use proper scaling for weight initialization (Xavier/Glorot uniform)
+        # Scale by sqrt(2 / in_features) for better initialization
+        scale = jnp.sqrt(2.0 / in_features)
+        self.W = jax.random.normal(k1, (in_features, out_features)) * scale
+        self.V = jax.random.normal(k2, (in_features, out_features)) * scale
+        # Initialize biases to zero for better training stability
+        self.b = jnp.zeros((out_features,))
+        self.c = jnp.zeros((out_features,))
 
     def __call__(
         self, x: Float[Array, "... in_features"]
@@ -247,7 +251,7 @@ class GPT(eqx.Module):
             # already unnormalized log-probabilities, so we pass them directly
             # after applying temperature scaling and optional top-k filtering.
             next_token = jax.random.categorical(subkey, logits[0])
-            print(f"Generated token {i+1}/{max_new_tokens}: {next_token}")
+            print(f"Generated token {i + 1}/{max_new_tokens}: {next_token}")
             tokens = jnp.append(tokens, next_token)
 
         return tokens

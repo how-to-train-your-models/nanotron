@@ -7,7 +7,9 @@ from typing import Any, Dict, Generator, Optional, Tuple, Callable
 dataset_name = "karpathy/tiny_shakespeare"
 _cached_vocab_info: Optional[Dict[str, Any]] = None
 # Cache for pre-encoded splits to avoid repeated Python-level encoding
-_cached_encoded_splits: Dict[str, jnp.ndarray] = {} # key is the split like train, validation, test and value is the pre-encoded array
+_cached_encoded_splits: Dict[
+    str, jnp.ndarray
+] = {}  # key is the split like train, validation, test and value is the pre-encoded array
 
 
 def get_dataset() -> Any:
@@ -90,7 +92,9 @@ def get_infinite_dataloader(
             key=subkey,
             shape=(batch_size,),
             minval=0,
-            maxval=max_tokens - seq_len - 1, # subtract seq_len to avoid out of bound while sampling sequences
+            maxval=max_tokens
+            - seq_len
+            - 1,  # subtract seq_len to avoid out of bound while sampling sequences
         )  # shape (batch_size,)
         # ix = jnp.arange(batch_size).reshape(batch_size, ) # keep the batch same for debugging
         # broadcast the token indices to get the input sequences

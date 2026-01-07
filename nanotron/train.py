@@ -22,7 +22,6 @@ print(f"{os.environ['CUDA_VISIBLE_DEVICES']=}")
 def get_optimizers(
     model: model.GPT, weight_decay: float, learning_rate: float, betas: Tuple
 ) -> optax.GradientTransformation:
-
     # Weight decay optimizer
     decay_optimizer = optax.chain(
         optax.clip_by_global_norm(1.0),
