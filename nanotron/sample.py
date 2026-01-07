@@ -130,7 +130,8 @@ def main(
         )
         
         generated_text = decode_fn(generated_tokens)
-        print(f"{generated_text=}")
+        print("generated_text:\n")
+        print(generated_text)
     print('---------------')
 
 if __name__ == "__main__":
