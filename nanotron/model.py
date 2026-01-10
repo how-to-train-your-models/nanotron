@@ -5,7 +5,7 @@ from equinox import nn
 from dataclasses import dataclass
 from jax import numpy as jnp
 from jaxtyping import Integer, Float, Array, PRNGKeyArray
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 from . import attention
 from .config import GPTConfig
@@ -213,6 +213,52 @@ class GPT(eqx.Module):
         return logits
 
     def decode(
+        self,
+        key: PRNGKeyArray,
+        initial_tokens: Integer[Array, "n_tokens"],
+        max_new_tokens: int,
+        temperature=1.0,
+        top_k=None,
+    ) -> Integer[Array, "n_tokens + max_new_tokens"]:
+
+        input_token_len = initial_tokens.shape[0]
+        padding = jnp.zeros((max_new_tokens,), dtype=jnp.int32)
+        tokens = jnp.concatenate([initial_tokens, padding], axis=-1)
+        indexes = jnp.arange(input_token_len, input_token_len + max_new_tokens)
+
+        def step(tokens: Integer[Array, "n_tokens + max_new_tokens"], i: int):
+            step_key = jax.random.fold_in(key, i)
+            model_key, sample_key = jax.random.split(step_key)
+
+            valid = jnp.arange(tokens.shape[0]) < i
+
+            logits = self(model_key, tokens, inference=True)
+            logits = jnp.where(valid[:, None], logits, -jnp.inf)
+            jax.debug.print("tokens {}, logits {}", tokens.shape, logits.shape)
+            logits = logits[i - 1] / temperature
+
+            if top_k is not None:
+                top_logits, top_tokens = jax.lax.top_k(
+                    logits, min(top_k, logits.shape[-1])
+                )
+                token_idx = jax.random.categorical(sample_key, top_logits, axis=-1)
+                next_token = jnp.take_along_axis(
+                    top_tokens, jnp.expand_dims(token_idx, 0), axis=-1
+                ).squeeze(-1)
+            else:
+                next_token = jax.random.categorical(sample_key, logits, axis=-1)
+            tokens = tokens.at[i].set(next_token)
+
+            return tokens, logits
+
+        tokens, all_logits = jax.lax.scan(step, tokens, indexes)
+
+        jax.debug.print("all_logits: {}", all_logits.shape)
+
+        return tokens
+
+
+    def decode_slow(
         self,
         key: PRNGKeyArray,
         initial_tokens: Integer[Array, "n_tokens"],

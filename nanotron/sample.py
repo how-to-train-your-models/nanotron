@@ -104,6 +104,9 @@ def main(
     bias: Annotated[
         bool, typer.Option(help="Whether to use bias in Linear and LayerNorm layers")
     ] = config.GPTConfig.bias,
+    slow: Annotated[
+        bool, typer.Option(help="Whether to use the slow decoding method")
+    ] = False,
 ):
     """
     Sample from a trained JAX-based GPT model.
@@ -152,7 +155,8 @@ def main(
         current_top_k = top_k if top_k > 0 else None  # Use the 'top_k' argument
 
         print(start_ids)
-        generated_tokens = loaded_model.decode(
+        model_decode_fn = loaded_model.decode_slow if slow else loaded_model.decode
+        generated_tokens = model_decode_fn(
             key=sample_key,
             initial_tokens=start_ids,
             max_new_tokens=max_new_tokens,  # Use the 'max_new_tokens' argument
